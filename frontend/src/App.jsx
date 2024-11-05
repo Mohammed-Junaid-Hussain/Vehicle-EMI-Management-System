@@ -5,7 +5,8 @@ import Signup from "./User/Signup";
 import Intial from "./User/Intial";
 import Home from "./User/Home";
 import ActiveLoans from "./User/Components/ActiveLoans";
-import PaymentComponent from "./User/Components/PaymentComponent";
+import EMIPaymentPage from "./User/Components/EMIPaymentPage";
+import PaymentHistoryPage from "./User/Components/PaymentHistoryPage";
 
 import Admin_Login from "./Admin/Admin_Login";
 import Admin_Home from "./Admin/Admin_Home";
@@ -14,6 +15,7 @@ import Vehicle from "./Admin/Components/Vehicle";
 import Application_form from "./User/Components/Application_form";
 import EMICalculator from "./User/Components/EMICalculator";
 import LoanRequestAdmin from "./Admin/Components/LoanRequestAdmin";
+import EMIDisbursementAdmin from "./Admin/Components/EMIDisbursementAdmin";
 import PrivateRoute from "./User/PrivateRoute"; // Import the PrivateRoute component
 
 function App() {
@@ -58,10 +60,18 @@ function App() {
           }
         />
         <Route
-          path="/PaymentComponent"
+          path="/EMIPaymentPage"
           element={
             <PrivateRoute>
-              <PaymentComponent />
+              <EMIPaymentPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/PaymentHistoryPage"
+          element={
+            <PrivateRoute>
+              <PaymentHistoryPage />
             </PrivateRoute>
           }
         />
@@ -71,6 +81,7 @@ function App() {
         <Route path="/admin/Reg_User" element={<Reg_User />} />
         <Route path="/admin/Vehicle" element={<Vehicle />} />
         <Route path="/admin/LoanRequestAdmin" element={<LoanRequestAdmin />} />
+        <Route path="/admin/EMIDisbursementAdmin" element={<EMIDisbursementAdmin />} /> 
       </Routes>
     </Router>
   );

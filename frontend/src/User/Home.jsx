@@ -13,13 +13,14 @@ import {
 import {
   Calculator,
   FileText,
-  CheckCircle,
+  CheckCircle,  
   Clock,
   DollarSign,
   User,
   Settings,
   CreditCard,
   AlertCircle,
+  Link2,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom"; // Ensure useNavigate is imported
 
@@ -144,14 +145,14 @@ const UserDashboard = () => {
               <FileText className="h-5 w-5" />
               New Loan Application
             </Link>
-            <button className="flex items-center justify-center gap-2 p-4 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            <Link to="/EMIPaymentPage" className="flex items-center justify-center gap-2 p-4 bg-green-600 text-white rounded-lg hover:bg-green-700">
               <DollarSign className="h-5 w-5" />
               Make Payment
-            </button>
-            <button className="flex items-center justify-center gap-2 p-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-              <FileText className="h-5 w-5" />
-              Download Statement
-            </button>
+            </Link>
+            <Link to="/ActiveLoans" className="flex items-center justify-center gap-2 p-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              <CreditCard className="h-5 w-5" />
+              Active Loans
+            </Link>
           </div>
         </div>
 

@@ -55,7 +55,7 @@ function AdminSidebar() {
             <FileText className="w-5 h-5 mr-3" />
             Loan Request
           </Link>
-          <Link to="/admin/disbursed-request" className="flex items-center w-full px-4 py-2 rounded-lg hover:bg-gray-800">
+          <Link to="/admin/EMIDisbursementAdmin" className="flex items-center w-full px-4 py-2 rounded-lg hover:bg-gray-800">
             <CreditCard className="w-5 h-5 mr-3" />
             Disbursed Request
           </Link>

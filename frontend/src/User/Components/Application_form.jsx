@@ -183,9 +183,8 @@ const Application_form = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6 flex overflow-hidden">
-      <div className="w-1/4 bg-slate-800 rounded-lg shadow-lg p-6 mr-6 overflow-y-auto">
-        <UserDashboard userInfo={userInfo} />
-      </div>
+       <UserDashboard userInfo={userInfo} />
+
 
       <div className="flex-1 bg-slate-800 rounded-lg shadow-lg p-6 overflow-y-auto">
         <h2 className="text-2xl font-semibold text-white mb-4">
