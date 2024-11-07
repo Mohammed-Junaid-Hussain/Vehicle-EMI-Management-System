@@ -158,24 +158,194 @@ app.post("/api/login", async (req, res) => {
 });
 
 // Fetch user information by ID
-app.get("/api/user/:id", (req, res) => {
+// app.get("/api/user/:id", (req, res) => {
+//   const userId = req.params.id;
+
+//   // Query to fetch user details
+//   const query = "SELECT * FROM users WHERE id = ?";
+//   db.query(query, [userId], (err, results) => {
+//     if (err) {
+//       return res.status(500).json({ message: "Database error", error: err });
+//     }
+
+//     if (results.length > 0) {
+//       const user = results[0];
+//       return res.json(user);
+//     } else {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//   });
+// });
+
+// Fetch user dashboard info
+// app.get('/api/user/:id', (req, res) => {
+//   const userId = req.params.id;
+
+//   // Main user information query
+//   const userQuery = `
+//     SELECT name
+//     FROM users WHERE id = ?`;
+
+//   // Next payment amount and date query
+//   const nextPaymentQuery = `
+//     SELECT amount AS nextPaymentAmount, payment_date AS nextEmiDate
+//     FROM payments 
+//     WHERE user_id = ? 
+//     ORDER BY payment_date DESC 
+//     LIMIT 1`;
+
+//   // Total outstanding amount query
+//   const outstandingQuery = `
+//     SELECT SUM(remaining_amount) AS totalOutstanding 
+//     FROM emi_applications 
+//     WHERE user_id = ? AND emi_status = 'Ongoing'`;
+
+//   // Recent transactions query
+//   const transactionQuery = `
+//     SELECT amount, payment_date AS date, 'Paid' AS status
+//     FROM payments
+//     WHERE user_id = ?
+//     ORDER BY payment_date DESC
+//     LIMIT 5`;
+
+//   // Execute the queries in sequence
+//   db.query(userQuery, [userId], (err, userResult) => {
+//     if (err) return res.status(500).send(err);
+
+//     if (userResult.length === 0) return res.status(404).send('User not found.');
+
+//     const userInfo = userResult[0];
+
+//     // Next payment details
+//     db.query(nextPaymentQuery, [userId], (err, paymentResult) => {
+//       if (err) return res.status(500).send(err);
+
+//       if (paymentResult.length > 0) {
+//         userInfo.nextPaymentAmount = paymentResult[0].nextPaymentAmount;
+//         userInfo.nextEmiDate = paymentResult[0].nextEmiDate;
+//       } else {
+//         userInfo.nextPaymentAmount = 0;
+//         userInfo.nextEmiDate = null;
+//       }
+
+//       // Outstanding amount
+//       db.query(outstandingQuery, [userId], (err, outstandingResult) => {
+//         if (err) return res.status(500).send(err);
+
+//         userInfo.totalOutstanding = outstandingResult[0].totalOutstanding || 0;
+
+//         // Recent transactions
+//         db.query(transactionQuery, [userId], (err, transactionResult) => {
+//           if (err) return res.status(500).send(err);
+
+//           userInfo.recentTransactions = transactionResult;
+//           res.json(userInfo);
+//         });
+//       });
+//     });
+//   });
+// });
+
+app.get('/api/user/:id', (req, res) => {
   const userId = req.params.id;
 
-  // Query to fetch user details
-  const query = "SELECT * FROM users WHERE id = ?";
-  db.query(query, [userId], (err, results) => {
-    if (err) {
-      return res.status(500).json({ message: "Database error", error: err });
-    }
+  // Main user information query
+  const userQuery = `
+    SELECT name
+    FROM users WHERE id = ?`;
 
-    if (results.length > 0) {
-      const user = results[0];
-      return res.json(user);
-    } else {
-      return res.status(404).json({ message: "User not found" });
-    }
+  // Next payment amount and date query
+  const nextPaymentQuery = `
+    SELECT amount AS nextPaymentAmount, payment_date AS nextEmiDate
+    FROM payments 
+    WHERE user_id = ? 
+    ORDER BY payment_date DESC 
+    LIMIT 1`;
+
+  // Total outstanding amount query
+  const outstandingQuery = `
+    SELECT SUM(remaining_amount) AS totalOutstanding 
+    FROM emi_applications 
+    WHERE user_id = ? AND emi_status = 'Ongoing'`;
+
+  // Recent transactions query
+  const transactionQuery = `
+    SELECT amount, payment_date AS date, 'Paid' AS status
+    FROM payments
+    WHERE user_id = ? 
+    ORDER BY payment_date DESC
+    LIMIT 5`;
+
+  // Query to calculate payment history and missed payments
+  const creditScoreQuery = `
+    SELECT COUNT(*) AS onTimePayments, 
+           SUM(CASE WHEN next_payment < CURRENT_DATE THEN 1 ELSE 0 END) AS missedPayments
+    FROM payments 
+    WHERE user_id = ?`;
+
+  // Execute the queries in sequence
+  db.query(userQuery, [userId], (err, userResult) => {
+    if (err) return res.status(500).send(err);
+
+    if (userResult.length === 0) return res.status(404).send('User not found.');
+
+    const userInfo = userResult[0];
+
+    // Next payment details
+    db.query(nextPaymentQuery, [userId], (err, paymentResult) => {
+      if (err) return res.status(500).send(err);
+
+      if (paymentResult.length > 0) {
+        userInfo.nextPaymentAmount = paymentResult[0].nextPaymentAmount;
+        userInfo.nextEmiDate = paymentResult[0].nextEmiDate;
+      } else {
+        userInfo.nextPaymentAmount = 0;
+        userInfo.nextEmiDate = null;
+      }
+
+      // Outstanding amount
+      db.query(outstandingQuery, [userId], (err, outstandingResult) => {
+        if (err) return res.status(500).send(err);
+
+        userInfo.totalOutstanding = outstandingResult[0].totalOutstanding || 0;
+
+        // Recent transactions
+        db.query(transactionQuery, [userId], (err, transactionResult) => {
+          if (err) return res.status(500).send(err);
+
+          userInfo.recentTransactions = transactionResult;
+
+          // Calculate credit score
+          db.query(creditScoreQuery, [userId], (err, creditResult) => {
+            if (err) return res.status(500).send(err);
+
+            const creditData = creditResult[0];
+
+            // Example calculation (this can be adjusted)
+            const onTimePayments = creditData.onTimePayments || 0;
+            const missedPayments = creditData.missedPayments || 0;
+
+            // Calculate credit score
+            let creditScore = 700 + (onTimePayments * 10) - (missedPayments * 50);
+
+            // Adjust for the outstanding amount
+            const totalOutstanding = userInfo.totalOutstanding || 0;
+            creditScore -= totalOutstanding / 1000; // Deduct from the score based on outstanding balance
+
+            // Ensure credit score is within a valid range (300 to 850)
+            creditScore = Math.max(300, Math.min(850, creditScore));
+
+            userInfo.creditScore = creditScore;
+
+            res.json(userInfo);
+          });
+        });
+      });
+    });
   });
 });
+
+
 
 // Admin login route
 app.post("/api/Admin_Login", async (req, res) => {
@@ -871,6 +1041,64 @@ ORDER BY emi_applications.id;
     res.json(Object.values(formattedResults));
   });
 });
+
+
+
+
+
+
+
+
+// // API to get user details, active loans, and transactions
+// app.get("/user/:userId/dashboard", async (req, res) => {
+//   const { userId } = req.params;
+
+//   try {
+//     // Query for user details
+//     const [user] = await db.query("SELECT * FROM users WHERE id = ?", [userId]);
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // Query for active loans
+//     const [activeLoans] = await db.query(
+//       `SELECT id, loan_amount, emi_amount, remaining_amount, interest_rate, tenure 
+//        FROM emi_applications 
+//        WHERE user_id = ? AND application_status = 'Approved' AND emi_status = 'Ongoing'`,
+//       [userId]
+//     );
+
+//     // Calculate total outstanding based on remaining amounts
+//     const totalOutstanding = activeLoans.reduce((sum, loan) => sum + parseFloat(loan.remaining_amount), 0);
+
+//     // Query for recent transactions
+//     const [recentTransactions] = await db.query(
+//       `SELECT amount, payment_date, status
+//        FROM payments
+//        WHERE user_id = ?
+//        ORDER BY payment_date DESC
+//        LIMIT 5`,
+//       [userId]
+//     );
+
+//     // Next EMI details for display
+//     const nextEmi = recentTransactions[0]; // Assuming the latest payment made is the next one due
+
+//     // Respond with the user's dashboard data
+//     res.json({
+//       user,
+//       activeLoans,
+//       totalOutstanding,
+//       recentTransactions,
+//       nextPaymentAmount: nextEmi ? nextEmi.amount : null,
+//       nextEmiDate: nextEmi ? nextEmi.payment_date : null,
+//     });
+//   } catch (error) {
+//     console.error("Error fetching user dashboard data:", error);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// });
 
 // Start the server
 app.listen(PORT, () => {

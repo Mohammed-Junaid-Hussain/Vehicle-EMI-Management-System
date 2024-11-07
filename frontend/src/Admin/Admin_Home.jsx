@@ -62,7 +62,7 @@ function Admin_Home() {
               return { ...metric, count: data.disbursedLoanApps || 0 };
             }
             return metric;
-          })
+          }) 
         );
       } catch (error) {
         console.error("Error fetching admin details:", error);

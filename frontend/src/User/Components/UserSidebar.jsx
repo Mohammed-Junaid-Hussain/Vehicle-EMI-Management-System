@@ -27,9 +27,11 @@ const UserSidebar = () => {
   const [userInfo, setUserInfo] = useState({ name: "User" });
   const [loading, setLoading] = useState(true);
 
-  const handleLogout = () => {
+  const handleLogout = (e) => {
+    e.preventDefault(); // Prevents navigation
     console.log("Logging out...");
     sessionStorage.removeItem("userSession");
+    localStorage.removeItem("userId");
     navigate("/login");
   };
 
@@ -79,7 +81,7 @@ const UserSidebar = () => {
           {navItems.map((item, index) => (
             <NavLink
               key={index}
-              to={item.path}
+              to={item.label === 'LogOut' ? '/' : item.path}
               onClick={item.label === 'LogOut' ? handleLogout : undefined}
               className={({ isActive }) =>
                 `flex items-center space-x-3 w-full p-3 rounded-lg transition-all duration-200 ${

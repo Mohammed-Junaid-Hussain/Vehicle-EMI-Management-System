@@ -1,314 +1,351 @@
-const express = require("express");
-const mysql = require("mysql2");
-const cors = require("cors");
-const bcrypt = require("bcrypt");
-const bodyParser = require("body-parser");
-const multer = require("multer");
-const path = require("path");
-const { body, validationResult } = require("express-validator");
-require("dotenv").config();
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  Calculator,
+  FileText,
+  CheckCircle,
+  Clock,
+  DollarSign,
+  User,
+  Settings,
+  CreditCard,
+  AlertCircle,
+  LogOut
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-app.use(express.urlencoded({ extended: true }));
-
-// MySQL connection
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
-
-// Connect to the database
-db.connect((err) => {
-  if (err) {
-    throw err;
-  }
-  console.log("MySQL connected...");
-});
-
-const fs = require("fs");
-// Assuming this is the MySQL connection file
-
-// Setup multer storage for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/"); // Upload directory
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname)); // Avoid file name duplicates
-  },
-});
-const upload = multer({ storage });
-
-// Ensure 'uploads' directory exists
-const uploadDir = "uploads/";
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
-app.post(
-  "/api/signup",
-  upload.single("panFile"),
-  [
-    body("email").isEmail().withMessage("Invalid email"),
-    body("password")
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters long"),
-    body("mobileNumber")
-      .isMobilePhone("any")
-      .withMessage("Invalid mobile number"),
-    body("panNumber").notEmpty().withMessage("PAN number is required"),
-    body("address").notEmpty().withMessage("Address is required"),
-    body("serviceType").notEmpty().withMessage("Service type is required"),
-    body("monthlyIncome")
-      .isNumeric()
-      .withMessage("Monthly income must be a number"),
-  ],
-  async (req, res) => {
-    console.log(req.body);
-    console.log(req.file);
-
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    try {
-      const {
-        name,
-        mobileNumber,
-        panNumber,
-        dob,
-        email,
-        password,
-        address,
-        serviceType,
-        monthlyIncome,
-      } = req.body;
-
-      // Check if the email already exists
-      const [results] = await db
-        .promise()
-        .query("SELECT * FROM users WHERE email = ?", [email]);
-      if (results.length > 0) {
-        return res.status(400).json({ message: "Email already exists" });
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const newUser = {
-        name,
-        mobileNumber,
-        panNumber,
-        dob,
-        email,
-        password: hashedPassword,
-        address,
-        serviceType,
-        monthlyIncome,
-        panFile: req.file ? req.file.filename : null,
-      };
-
-      await db.promise().query("INSERT INTO users SET ?", newUser);
-      res.status(201).json({ message: "User registered successfully" });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Server error" });
-    }
-  }
+const Card = ({ children, className }) => (
+  <div className={`bg-slate-800 rounded-lg shadow-md p-6 ${className}`}>
+    {children}
+  </div>
 );
 
-// Login route
-app.post("/api/login", async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const [results] = await db
-      .promise()
-      .query("SELECT * FROM Users WHERE email = ?", [email]);
-    if (results.length === 0) {
-      return res.status(400).json({ message: "User not found" });
-    }
-
-    const user = results[0];
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(400).json({ message: "Invalid password" });
-    }
-
-    res.json({ message: "Login successful", userId: user.id });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// Admin login route
-app.post("/api/Admin_Login", async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const query = "SELECT * FROM admin WHERE email = ?";
-    const [results] = await db.promise().query(query, [email]);
-
-    if (results.length === 0) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
-
-    const admin = results[0];
-    const match = await bcrypt.compare(password, admin.password);
-    if (!match) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
-
-    res.json({ message: "Login successful", role: admin.role });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Database error" });
-  }
-});
-
-// Create admin
-app.post(
-  "/api/createAdmin",
-  [
-    body("email").isEmail().withMessage("Invalid email"),
-    body("password")
-      .isLength({ min: 6 })
-      .withMessage("Password must be at least 6 characters long"),
-  ],
-  async (req, res) => {
-    const { email, password } = req.body;
-
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const query =
-        "INSERT INTO admin (email, password, role, priority) VALUES (?, ?, 'admin', 1)";
-      await db.promise().query(query, [email, hashedPassword]);
-      res.json({ message: "Admin created successfully" });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Error creating admin" });
-    }
-  }
+const CardHeader = ({ children, className }) => (
+  <div className={`mb-4 ${className}`}>{children}</div>
 );
 
-//TO GET LIST OF USERS
-app.get("/api/users", async (req, res) => {
-  try {
-    const [results] = await db.promise().query("SELECT * FROM users");
-    res.json(results); // Send back the list of users
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+const CardTitle = ({ children, className }) => (
+  <h3 className={`text-lg font-semibold text-white ${className}`}>
+    {children}
+  </h3>
+);
+
+const CardContent = ({ children }) => (
+  <div className="text-slate-300">{children}</div>
+);
+
+const Alert = ({ children, className }) => (
+  <div className={`p-4 rounded-md bg-slate-700 text-white ${className}`}>
+    {children}
+  </div>
+);
+
+const AlertDescription = ({ children }) => <p>{children}</p>;
+
+const UserDashboard = () => {
+  const navigate = useNavigate();
+  const [loanAmount, setLoanAmount] = useState("");
+  const [interestRate, setInterestRate] = useState("");
+  const [tenure, setTenure] = useState("");
+  const [calculatedEmi, setCalculatedEmi] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch user info from API on component mount
+  useEffect(() => {
+    const userId = localStorage.getItem("userId");
+
+    if (userId) {
+      axios
+        .get(`http://localhost:5000/api/user/${userId}`)
+        .then((response) => {
+          setUserInfo(response.data);
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error fetching user info:", error);
+          navigate("/login");
+        });
+    } else {
+      navigate("/login");
+    }
+  }, [navigate]);
+
+  const calculateEMI = () => {
+    const principal = parseFloat(loanAmount);
+    const ratePerMonth = parseFloat(interestRate) / (12 * 100);
+    const tenureMonths = parseFloat(tenure) * 12;
+
+    const emi =
+      (principal * ratePerMonth * Math.pow(1 + ratePerMonth, tenureMonths)) /
+      (Math.pow(1 + ratePerMonth, tenureMonths) - 1);
+
+    setCalculatedEmi(emi.toFixed(2));
+  };
+
+  const handleLogout = () => {
+    console.log("Logging out...");
+    sessionStorage.removeItem("userSession");
+    localStorage.removeItem("userId");
+    navigate("/login");
+  };
+
+  const data = [
+    { name: "Aug", amount: 15000 },
+    { name: "Sep", amount: 15000 },
+    { name: "Oct", amount: 15000 },
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white p-6">Loading...</div>
+    );
   }
-});
 
-// Endpoint to fetch vehicles
-app.get("/api/vehicles", (req, res) => {
-  db.query("SELECT * FROM vehicle", (err, results) => {
-    if (err) {
-      console.error("Database query error:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
-    res.json(results);
-  });
-});
+  return (
+    <div className="min-h-screen bg-slate-900 text-white p-6">
+      <div className="max-w-7xl mx-auto">
+        <header className="mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-white">
+                Welcome back, {userInfo.name}!
+              </h1>
+              <p className="text-slate-400 mt-2">
+                Manage your loans and applications
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600">
+                <User className="h-4 w-4" />
+                Profile
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600"
+              >
+                <LogOut className="h-4 w-4" />
+                LogOut
+              </button>
+            </div>
+          </div>
+        </header>
 
-// Endpoint to add a vehicle
-app.post("/api/vehicles", (req, res) => {
-  const { model_name, mfd, price, brand } = req.body; // Add brand to destructuring
-  const sql =
-    "INSERT INTO vehicle (model_name, mfd, price, brand) VALUES (?, ?, ?, ?)";
-  db.query(sql, [model_name, mfd, price, brand], (err, result) => {
-    if (err) {
-      console.error("Error inserting vehicle:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
-    res
-      .status(201)
-      .json({ vehicle_id: result.insertId, model_name, mfd, price, brand }); // Include brand in response
-  });
-});
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 text-white">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Link
+              to="/Application_form"
+              className="flex items-center justify-center gap-2 p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <FileText className="h-5 w-5" />
+              New Loan Application
+            </Link>
+            <Link to="/EMIPaymentPage" className="flex items-center justify-center gap-2 p-4 bg-green-600 text-white rounded-lg hover:bg-green-700">
+              <DollarSign className="h-5 w-5" />
+              Make Payment
+            </Link>
+            <Link to="/ActiveLoans" className="flex items-center justify-center gap-2 p-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              <CreditCard className="h-5 w-5" />
+              Active Loans
+            </Link>
+          </div>
+        </div>
 
-// Endpoint to delete a vehicle
-app.delete("/api/vehicles/:id", (req, res) => {
-  const vehicleId = req.params.id;
-  const sql = "DELETE FROM vehicle WHERE vehicle_id = ?";
-  db.query(sql, [vehicleId], (err, result) => {
-    if (err) {
-      console.error("Error deleting vehicle:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Vehicle not found" });
-    }
-    res.status(204).send(); // No content to send back
-  });
-});
+        {/* Important Alerts */}
+        <div className="mb-8">
+          <Alert>
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <AlertDescription>
+              Your next EMI payment of ₹{userInfo.nextPaymentAmount} is due on{" "}
+              {userInfo.nextEmiDate}
+            </AlertDescription>
+          </Alert>
+        </div>
 
-// Endpoint to update a vehicle
-app.put("/api/vehicles/:id", (req, res) => {
-  const vehicleId = req.params.id;
-  const { model_name, mfd, price, brand } = req.body; // Include brand
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Credit Score Card */}
+          <Card className="hover:bg-slate-700 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle>Credit Score</CardTitle>
+              <CreditCard className="h-5 w-5 text-blue-400" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-white">
+                {userInfo.creditScore}
+              </p>
+              <div className="w-full bg-slate-600 rounded-full h-2.5 mt-2">
+                <div
+                  className="bg-green-500 h-2.5 rounded-full"
+                  style={{ width: `${(userInfo.creditScore / 900) * 100}%` }}
+                ></div>
+              </div>
+            </CardContent>
+          </Card>
 
-  const sql =
-    "UPDATE vehicle SET model_name = ?, mfd = ?, price = ?, brand = ? WHERE vehicle_id = ?";
-  db.query(sql, [model_name, mfd, price, brand, vehicleId], (err, result) => {
-    if (err) {
-      console.error("Error updating vehicle:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Vehicle not found" });
-    }
-    res
-      .status(200)
-      .json({ vehicle_id: vehicleId, model_name, mfd, price, brand }); // Return the updated vehicle
-  });
-});
+          {/* EMI Calculator Card */}
+          <Card className="hover:bg-slate-700 transition-colors col-span-1 md:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle>EMI Calculator</CardTitle>
+              <Calculator className="h-5 w-5 text-green-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Loan Amount
+                  </label>
+                  <input
+                    type="number"
+                    value={loanAmount}
+                    onChange={(e) => setLoanAmount(e.target.value)}
+                    className="w-full p-2 border bg-slate-700 text-white border-slate-600 rounded-md"
+                    placeholder="Enter amount"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Interest Rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={interestRate}
+                    onChange={(e) => setInterestRate(e.target.value)}
+                    className="w-full p-2 border bg-slate-700 text-white border-slate-600 rounded-md"
+                    placeholder="Enter rate"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Tenure (Years)
+                  </label>
+                  <input
+                    type="number"
+                    value={tenure}
+                    onChange={(e) => setTenure(e.target.value)}
+                    className="w-full p-2 border bg-slate-700 text-white border-slate-600 rounded-md"
+                    placeholder="Enter years"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={calculateEMI}
+                className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+              >
+                Calculate EMI
+              </button>
+              {calculatedEmi && (
+                <div className="mt-4 p-4 bg-slate-700 rounded-md">
+                  <p className="text-lg font-semibold text-white">
+                    Monthly EMI:
+                  </p>
+                  <p className="text-3xl font-bold text-blue-400">
+                    ₹{calculatedEmi}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-// Define Admin details endpoint
-app.get("/api/admin-details", (req, res) => {
-  // Query to get total registered users
-  const totalUsersQuery = "SELECT COUNT(*) AS totalRegisteredUsers FROM users";
+          {/* Recent Transactions */}
+          <Card className="hover:bg-slate-700 transition-colors col-span-1 md:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle>Recent Transactions</CardTitle>
+              <Clock className="h-5 w-5 text-orange-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="divide-y divide-slate-700">
+                {userInfo && userInfo.recentTransactions ? (
+                  userInfo.recentTransactions.map((transaction, index) => (
+                    <div
+                      key={index}
+                      className="py-3 flex justify-between items-center"
+                    >
+                      <div>
+                        <p className="font-medium text-white">
+                          {transaction.date}
+                        </p>
+                        <p className="text-sm text-slate-400">EMI Payment</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-white">
+                          ₹{transaction.amount}
+                        </p>
+                        <p className="text-sm text-green-400">
+                          {transaction.status}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-400">
+                    No recent transactions available
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-  db.query(totalUsersQuery, (error, results) => {
-    if (error) {
-      console.error("Error fetching total registered users:", error);
-      return res.status(500).json({ message: "Internal server error" });
-    }
+          {/* Total Outstanding */}
+          <Card className="hover:bg-slate-700 transition-colors">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle>Total Outstanding</CardTitle>
+              <DollarSign className="h-5 w-5 text-red-400" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-white">
+                ₹
+                {userInfo.totalOutstanding
+                  ? userInfo.totalOutstanding.toLocaleString()
+                  : "0"}
+              </p>
 
-    const totalRegisteredUsers = results[0].totalRegisteredUsers;
+              <p className="text-sm text-slate-400 mt-1">
+                Across all active loans
+              </p>
+            </CardContent>
+          </Card>
 
-    // Here you can add logic to fetch admin details if necessary
-    const adminInfo = {
-      email: "admin@example.com", // Replace with actual admin email
-      totalRegisteredUsers,
-    };
+          {/* Transaction History Chart */}
+          <Card className="hover:bg-slate-700 transition-colors col-span-1 md:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle>Transaction History</CardTitle>
+              <BarChart className="h-5 w-5 text-purple-400" />
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
+                  <XAxis dataKey="name" stroke="#a0aec0" />
+                  <YAxis stroke="#a0aec0" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#2d3748",
+                      border: "none",
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="amount" fill="#6366f1" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-    res.json(adminInfo);
-  });
-});
-
-
-
-// Serve the client
-app.use(express.static("client/build"));
-
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+export default UserDashboard;
